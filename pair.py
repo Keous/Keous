@@ -11,8 +11,8 @@ import numpy as np
 
 dir_path=os.path.dirname(os.path.realpath(__file__))
 base = datetime.datetime.now(pytz.utc).strftime('%m-%d-%y-')
-#os.system('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'collection.pkl'))
-#os.system('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'embs.pt'))
+os.system('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'collection.pkl'))
+os.system('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'embs.pt'))
 c=Collection.load(base+'collection.pkl')
 embs = torch.load(base+'embs.pt')
 cluster = OPTICS(min_samples=2).fit_predict(embs) #6
@@ -38,6 +38,6 @@ for p in article_pairs:
         print(p[3].title.strip(),p[3].source)
         print(p[4].title.strip(),p[4].source)
         print('\n')
-#os.system('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'sent_matrix.h5',base))
-#os.system('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'mention_matrix.h5',base))
-#os.system('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'pair.pkl',base))
+os.system('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'sent_matrix.h5',base))
+os.system('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'mention_matrix.h5',base))
+os.system('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'pair.pkl',base))
