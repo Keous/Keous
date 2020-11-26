@@ -1,8 +1,8 @@
 # Keous
  
-Keous uses AI to mitigate media bias. This is the code for the AI which runs Keous. This code is 100% opensource, and it used to power our website [keous.ai] (https://www.keous.ai). 
+Keous uses AI to mitigate media bias. This is the code for the AI which runs Keous. This code is 100% opensource, and it used to power our website [keous.ai](https://www.keous.ai). 
 
-You can view our research paper at [keous.ai/paper] (https://www.keous.ai/paper). 
+You can view our research paper at [keous.ai/paper](https://www.keous.ai/paper). 
 
 There are 4 main files in the root directory:
 
