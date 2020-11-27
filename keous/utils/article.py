@@ -12,8 +12,6 @@ from spacy.matcher import Matcher
 import traceback
 import json
 
-recognized_sources = ['Fox News','New York Times','NBC News','Huffington Post', 'CBS News', 'NPR','CNN','The Hill','Washington Times']
-
 def try_get_key(obj,key):
     try:
         return obj[key]
@@ -100,7 +98,7 @@ class Article(object):
             self.source = 'Washington Post'
         else:
             self.source = 'Unrecognized'
-            warnings.warn("Unrecognized source! We support the following sources: {}. Url: {}".format(recognized_sources,self.url))
+            warnings.warn("Unrecognized source! Url: {}".format(self.url))
            
     def parse(self):
         if not hasattr(self,'http'):
