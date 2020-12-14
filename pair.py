@@ -8,6 +8,12 @@ from sklearn.cluster import OPTICS
 import pytz
 import pickle
 import numpy as np
+import spacy
+import neuralcoref
+
+nlp=spacy.load('en_core_web_lg')
+neuralcoref.add_to_pipe(nlp)
+
 
 dir_path=os.path.dirname(os.path.realpath(__file__))
 base = datetime.datetime.now(pytz.utc).strftime('%m-%d-%y-')
@@ -15,10 +21,10 @@ os.system('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'coll
 os.system('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'embs.pt'))
 c=Collection.load(base+'collection.pkl')
 embs = torch.load(base+'embs.pt')
-cluster = OPTICS(min_samples=2).fit_predict(embs) #6
-kb=KnowledgeBase(base+'kb.txt')
+cluster = OPTICS(min_samples=6).fit_predict(embs)
+kb=KnowledgeBase(nlp=nlp)
 df1,df2 = build_dfs(c,kb,df1_path=base+'sent_matrix.h5',df2_path=base+'mention_matrix.h5')
-kb.save()
+kb.save(base+'kb.txt')
 pairs = get_pairs(cluster,df1=df1,df2=df2)
 article_pairs = [(sim,cos,np.linalg.norm(embs[i]-embs[j]),c[i],c[j]) if sim is not None else (None,None,None,None,None) for sim,cos,(i,j) in pairs]
 short_pairs = [p for p in article_pairs if p[0] is not None] #only relevent included

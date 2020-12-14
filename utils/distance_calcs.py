@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import torch
-from sklearn.cluster import OPTICS
 from itertools import combinations
 from collections import Counter
 
@@ -27,7 +26,7 @@ def f(a,w_a,b,w_b):
 	new=np.stack((a,w_a,b,w_b))
 	norms = np.linalg.norm(new,axis=1)
 	normed = new/norms[:,np.newaxis]
-	a_norm,w_a_norm,b_norm,w_b_norm = normed
+	a_norm,w_a_norm,b_norm,w_b_norm = norms
 	return np.sum(w_a_norm*w_b_norm*np.abs(a-b))
 
 

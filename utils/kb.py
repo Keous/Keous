@@ -1,6 +1,4 @@
 from itertools import chain
-import spacy
-import neuralcoref
 import random
 from collections import Counter
 import numpy as np
@@ -9,10 +7,6 @@ import operator
 import re
 import ast
 from sklearn import metrics
-
-nlp=spacy.load('en_core_web_lg')
-neuralcoref.add_to_pipe(nlp)
-
 
 class KB_Item():
     def __init__(self,iterable,kb,code=None):
@@ -33,7 +27,7 @@ class KB_Item():
         vals=list(self.counter.values())
         total=sum(vals)
         weight_matrix=np.array(vals)/total
-        vec_matrix=np.vstack([nlp(key).vector for key in self.counter.keys()])
+        vec_matrix=np.vstack([self.kb.nlp(key).vector for key in self.counter.keys()])
         return np.dot(weight_matrix,vec_matrix)
 
     def __repr__(self):
@@ -54,31 +48,19 @@ class KB_Item():
 
 
 class KnowledgeBase():
-    def __init__(self,kb_file=None,seed_dict=None):
-        if kb_file is None:
-            return self
+    def __init__(self,nlp=None):
+        self.nlp=nlp
+        self.kb={}
 
-        self.kb_file=kb_file
-        if seed_dict is not None:
-            self.kb=seed_dict
-        else:
-            self.kb={}
-            try:
-                self.load()
-            except FileNotFoundError:
-                self.save()
-
-    def save(self):
-        with open(self.kb_file,'w',encoding='utf-8') as f:
+    def save(self,file_name):
+        with open(file_name,'w',encoding='utf-8') as f:
             if len(self)==0:
                 f.write('{}')
             for key,val in self.items():
                 f.write('{}:{}\n'.format(key,val))
 
-    def load(self,file=None):
-        if file is None:
-            file=self.kb_file
-        with open(file,'r',encoding='utf-8') as f:
+    def load(self,file_name):
+        with open(file_name,'r',encoding='utf-8') as f:
             data=f.readlines()
         if data==['{}']:
             self.kb =  {}
@@ -129,7 +111,7 @@ class KnowledgeBase():
         return self.kb.keys()
 
     def load_cluster(self,a):
-        doc=nlp(a.text())
+        doc=self.nlp(a.text())
         for cluster in doc._.coref_clusters:
             stop_free = [m for m in cluster.mentions if not (len(m)==1 and m[0].is_stop)] #rempove pronouns and other stops
             if len(stop_free)==0:
@@ -151,7 +133,7 @@ class KnowledgeBase():
     def build_ent_dict(self,a,use_code=False):
         annotations = a.ent_sents
         ents = list(chain.from_iterable(a.ents))
-        docs = nlp.pipe(ents)
+        docs = self.nlp.pipe(ents)
         most_sim = self.find_most_sim(docs)
         ent_dict={}
         for (best_fit,score),ann,ent in zip(most_sim,annotations,ents):
