@@ -5,8 +5,6 @@ import threading
 from queue import Queue
 import re
 from collections import OrderedDict,Counter
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
 import time
 from itertools import chain
 from .article import Article,Collection
@@ -44,6 +42,8 @@ def get_urls(root_url,http,browser=False,max_n=15):
     urls = []
     #any([base in root_url for base in {'cnn.com','theamericanconservative.com'}])
     if browser == True: #needs to use a browser to scrape content
+        from selenium import webdriver
+        from selenium.webdriver.firefox.options import Options
         opts = Options()
         opts.headless = True
         driver=webdriver.Firefox(options=opts)
@@ -60,7 +60,7 @@ def get_urls(root_url,http,browser=False,max_n=15):
             return []
         soup = BeautifulSoup(response.data,'html.parser')
     if any([base in root_url for base in {'vox.com','nationalreview.com','thefederalist.com','nypost.com','nytimes.com','npr.org'}]):
-        pattern = '/2020/' #special pattern, NEEDS TO BE CHANGED YEARLY
+        pattern='20[0-9][0-9]' #matches years
     elif any([base in root_url for base in {'theblaze.com','cbsnews.com'}]):
         pattern = '/news/'
     elif any([base in root_url for base in {'theamericanconservative.com'}]):
@@ -96,16 +96,47 @@ def get_urls(root_url,http,browser=False,max_n=15):
                     urls.append(url)
             if url[0]=='/': #if relative link, make abesolute link
                 urls.append('https://'+naked_root_url+url)
-    return list(OrderedDict.fromkeys(urls))[:max_n] #cute trick to remove duplicates while preserving order
+    return list(OrderedDict.fromkeys(urls))[:max_n] #remove duplicates while preserving order
 
 
-def scrape_all(root_urls=root_urls[:1],max_n=15):
+def get_all_urls(root_urls=root_urls,max_n=15):
     urls = []
     http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED',ca_certs=certifi.where(),timeout=12.0)
     for root_url in root_urls:
             urls.append(get_urls(root_url,http=http,max_n=max_n))
-    flat=list(chain.from_iterable(urls))
-    print(len(flat))
-    c = Collection(flat,max_threads=100,http=http,verbose=0)
-    print(len(c))
+    return list(chain.from_iterable(urls))
+
+
+
+def scrape_all(root_urls=root_urls,max_n=15):
+    urls = get_all_urls(root_urls=root_urls,max_n=max_n)
+    c = Collection(urls,max_threads=100,http=http,verbose=0)
+    return c
+
+
+def add_urls(file):
+    '''Scrape sources and add the urls to a text file'''
+    with open(file,'r',encoding='utf-8') as f:
+        old_urls = f.readlines()
+
+    new_urls = get_all_urls(max_n=25)
+
+    urls = set(old_urls+new_urls)
+
+    with open(file,'w',encoding='utf-8') as f:
+        f.write('\n'.join(urls))
+
+def scrape_file(in_file,out_file,get_ents=True,clear=True,max_threads=100,nlp=None):
+    '''Scrape all urls on the text file'''
+    with open(in_file,'r',encoding='utf-8') as f:
+        urls = f.readlines()
+    c = Collection(urls,max_threads=max_threads,verbose=0)
+    if get_ents==True:
+        assert nlp is not None
+        c.get_ents(nlp=nlp)
+    c.save(out_file)
+
+    if clear==True: #clear file
+        with open(in_file,'w',encoding='utf-8') as f:
+            f.write('')
     return c
