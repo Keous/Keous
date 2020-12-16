@@ -5,7 +5,8 @@ if __name__=='__main__':
 	import subprocess
 	import os
 
-	base = datetime.datetime.now(pytz.utc).strftime('%m-%d-%y-')
+	#base = datetime.datetime.now(pytz.utc).strftime('%m-%d-%y-')
+	base='12-14-20-'
 	dir_path=os.path.dirname(os.path.realpath(__file__))
 
 	def scrape_urls():
@@ -16,14 +17,14 @@ if __name__=='__main__':
 
 	def build_collection():
 		from .utils.scrape import scrape_file
-		#import spacy
-		#import neuralcoref
+		import spacy
+		import neuralcoref
 
-		#nlp=spacy.load('en_core_web_lg')
-		#neuralcoref.add_to_pipe(nlp)
+		nlp=spacy.load('en_core_web_lg')
+		neuralcoref.add_to_pipe(nlp)
 
 		subprocess.run('gsutil cp gs://keous-model-files/data/urls.txt .',shell=True,check=False)
-		scrape_file('urls.txt',base+'collection.msgpack',get_ents=False,clear=False)
+		scrape_file('urls.txt',base+'collection.msgpack',get_ents=True,clear=False,nlp=nlp)
 		subprocess.run('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'collection.msgpack',base),shell=True,check=False)
 		subprocess.run('gsutil cp urls.txt gs://keous-model-files/data/urls.txt',shell=True,check=False)
 
@@ -34,9 +35,9 @@ if __name__=='__main__':
 		import torch
 
 		subprocess.run('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'collection.msgpack'),shell=True,check=False)
-		c=Collection().load(base+'collection.msgpack')
+		c=Collection().load(base+'Collectiontion.msgpack')
 		model_file = os.path.join(dir_path,'models','1_big_retry.pt')
-		model = MyModel().from_pretrained(model_file)
+		model = MyModel().from_pretrained(model_file,extra_args={'model.bert.embeddings.position_ids':torch.arange(512).reshape((1,512)).cuda()}) #pos id an artifact from transformers==3.2
 		data_loader = model.preprocess([a.title for a in c],batch_size=4)
 		embs = model.pred(data_loader,post_op='mean',cat=True)
 		torch.save(embs,base+'embs.pt')
@@ -46,16 +47,18 @@ if __name__=='__main__':
 	def predict():
 		from .models.bert_model import MyModel,read_out
 		from .utils.article import Collection
-		os.system('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'collection.pkl'))
-		c=Collection.load(base+'collection.pkl')
+		import torch
+
+		subprocess.run('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'collection.msgpack'),shell=True,check=False)
+		c=Collection().load(base+'collection.msgpack')
 		model_file = os.path.join(dir_path,'models','3_new_data_model.pt')
-		model = MyModel().from_pretrained(model_file,num_classes=5)
+		model = MyModel().from_pretrained(model_file,num_classes=5,extra_args={'model.bert.embeddings.position_ids':torch.arange(512).reshape((1,512)).cuda()}) #pos id an artifact from transformers==3.2
 		x,_ = read_out(c,x_only=True,split=False,clean=False)
 		data_loader = model.preprocess(x,batch_size=16)
 		pred = model.pred(data_loader,post_op='predict',cat=True)
 		c.load_predicted_sentiments(pred)
-		c.save(base+'collection.pkl')
-		os.system('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'collection.pkl',base))
+		c.save(base+'collection.msgpack')
+		subprocess.run('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'collection.msgpack',base),shell=True,check=False)
 
 
 	def pair():
@@ -70,9 +73,9 @@ if __name__=='__main__':
 		nlp=spacy.load('en_core_web_lg')
 		neuralcoref.add_to_pipe(nlp)
 
-		os.system('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'collection.pkl'))
-		os.system('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'embs.pt'))
-		c=Collection.load(base+'collection.pkl')
+		subprocess.run('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'collection.msgpack'),shell=True,check=False)
+		subprocess.run('gsutil cp gs://keous-model-files/data/{}/{} .'.format(base,base+'embs.pt'),shell=True,check=False)
+		c=Collection().load(base+'collection.msgpack')
 		embs = torch.load(base+'embs.pt')
 		cluster = OPTICS(min_samples=6).fit_predict(embs)
 		kb=KnowledgeBase(nlp=nlp)
@@ -97,9 +100,9 @@ if __name__=='__main__':
 		        print(p[3].title.strip(),p[3].source)
 		        print(p[4].title.strip(),p[4].source)
 		        print('\n')
-		os.system('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'sent_matrix.h5',base))
-		os.system('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'mention_matrix.h5',base))
-		os.system('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'pair.pkl',base))
+		subprocess.run('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'sent_matrix.h5',base),shell=True,check=False)
+		subprocess.run('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'mention_matrix.h5',base),shell=True,check=False)
+		subprocess.run('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'pair.json',base),shell=True,check=False)
 
 
 	commands = {

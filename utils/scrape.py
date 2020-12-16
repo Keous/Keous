@@ -129,11 +129,12 @@ def add_urls(file):
 def scrape_file(in_file,out_file,get_ents=True,clear=True,max_threads=100,nlp=None):
     '''Scrape all urls on the text file'''
     with open(in_file,'r',encoding='utf-8') as f:
-        urls = f.readlines()
+        urls = [url.strip() for url in f.readlines()]
     c = Collection(urls,max_threads=max_threads,verbose=0)
     if get_ents==True:
         assert nlp is not None
         c.get_ents(nlp=nlp)
+        
     c.save(out_file)
 
     if clear==True: #clear file

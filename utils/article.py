@@ -471,7 +471,7 @@ class Article(object):
 class Collection(object):
 	'''Used for a collection of articles. Can either pass urls to be threaded, or can pass articles'''
    
-	def __init__(self,data=None,max_threads=30,source=None,http=None,verbose=1):
+	def __init__(self,data=None,max_threads=30,http=None,verbose=1):
 		if http is None:
 			self.http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED',ca_certs=certifi.where(),headers={'User-Agent': 'Mozilla/5.0'})
 		else:
@@ -492,12 +492,12 @@ class Collection(object):
 			self.articles = self.thread(data,max_threads)
 
 		elif all([isinstance(a,str) for a in data]): #if all urls
-			self.articles = self.thread(data,max_threads,source=source)
+			self.articles = self.thread(data,max_threads)
 			
 		else:
 			raise TypeError('Either use all feeds, all urls, or all articles')
 	 
-	def thread(self,urls,max_threads,source=None):
+	def thread(self,urls,max_threads):
 		if len(urls) >= max_threads:
 			n_threads = max_threads
 		elif len(urls) < max_threads:
@@ -506,7 +506,7 @@ class Collection(object):
 		q=Queue()
 		threaded_articles = []
 		for i in range(n_threads):
-			t = threading.Thread(target=self.worker,args=(q,threaded_articles,source))
+			t = threading.Thread(target=self.worker,args=(q,threaded_articles))
 			t.start()
 			threads.append(t)
 		for url in urls:
@@ -519,13 +519,13 @@ class Collection(object):
 			t.join()
 		return [t for t in threaded_articles if t.paras != None and len(t.paras)!=0]
 
-	def worker(self,q,threaded_articles,source=None):
+	def worker(self,q,threaded_articles):
 		while True:
 			url = q.get()
 			if url is None:
 				break
 			try:
-				threaded_articles.append(Article(url,source=source,http=self.http))
+				threaded_articles.append(Article(url,http=self.http))
 			except Exception as e: #need to add more conditions
 				if self.verbose==2:
 					print('Error scraping {}, got error {} with traceback {}'.format(url,e,traceback.format_exc()))
