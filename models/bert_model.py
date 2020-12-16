@@ -40,7 +40,7 @@ class MyBert(BertPreTrainedModel):
     def forward(self,input_ids,attention_mask,post_op=None):
          last_hidden_states,pooled_output = self.bert(
                     input_ids,
-                    attention_mask=attention_mask)
+                    attention_mask=attention_mask).to_tuple()
          if post_op=='mean': #meaned last hidden output (batch_size,768)
                 return mean_pool(last_hidden_states,attention_mask)
          elif post_op=='default': #bert's pooling output (batch_size,768)
@@ -239,13 +239,14 @@ class MyModel(torch.nn.Module):
         state = self.state_dict()
         torch.save(state,path)
 
-    def load(self,path,strict=True):
+    def load(self,path,strict=True,extra_args={}):
         state=torch.load(path)
+        state.update(extra_args)
         self.load_state_dict(state,strict=strict)
 
-    def from_pretrained(self,path,bert_files='HuggingFace Transformers',dropout_prob=None,num_classes=None,strict=True):
+    def from_pretrained(self,path,bert_files='HuggingFace Transformers',dropout_prob=None,num_classes=None,strict=True,extra_args={}):
         self.model = MyBert.from_pretrained(bert_files,dropout_prob=dropout_prob,num_classes=num_classes)
-        self.load(path,strict=strict)
+        self.load(path,strict=strict,extra_args=extra_args)
         self.model.cuda()
         return self
 
