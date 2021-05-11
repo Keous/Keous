@@ -178,15 +178,23 @@ class MyModel(torch.nn.Module):
         else:
             return np.concatenate(pred,axis=0)
 
-    def triplet_train_collection(self,c,batch_size=8,epochs=4,post_op='default',save=None,lr=3e-5):
+    def triplet_train_collection(self,c,batch_size=8,epochs=4, headline_emb = True, post_op='default',save=None,lr=3e-5):
         if len(c)%2==1:
             c=c[:-1] #assure even number
-        n=len(c)//2
-        pos = c[:n]
-        neg= c[n:]
-        pos_loader = self.preprocess([a.title for a in pos],batch_size=batch_size)
-        neg_loader = self.preprocess([a.title for a in neg],batch_size=batch_size)
-        anchor_loader = self.preprocess([a.text() for a in pos],batch_size=batch_size) #test on equal maxlen by setting false
+
+        if headline_emb == True: #if  doing headline emb use double title
+            anchor = [a.text() for a in c]
+            pos = [a.title for a in c]
+            neg = list(reversed([a.title for a in c]))
+
+        if headline_emb == False: #if not doing headline emb use double text
+            anchor = [a.title for a in c]
+            pos = [a.text() for a in c]
+            neg = list(reversed([a.text() for a in c]))
+
+        anchor_loader = self.preprocess(anchor,batch_size=batch_size)
+        pos_loader = self.preprocess(pos,batch_size=batch_size)
+        neg_loader = self.preprocess(neg,batch_size=batch_size)
         self.triplet_train(anchor_loader,pos_loader,neg_loader,epochs=epochs,post_op=post_op,save=save,lr=lr)
 
     def supervised_train_data(self,xtr,ytr,xval,yval,batch_size=8,epochs=4,save=None,lr=3e-5,warmup=False):

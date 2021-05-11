@@ -5,8 +5,7 @@ if __name__=='__main__':
 	import subprocess
 	import os
 
-	#base = datetime.datetime.now(pytz.utc).strftime('%m-%d-%y-')
-	base='12-14-20-'
+	base = datetime.datetime.now(pytz.utc).strftime('%m-%d-%y-')
 	dir_path=os.path.dirname(os.path.realpath(__file__))
 
 	def scrape_urls():
