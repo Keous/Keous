@@ -101,7 +101,7 @@ class MyModel(torch.nn.Module):
                 loss = criterion(anchor_output,pos_output,neg_output)
                 loss.backward()
                 self.optimizer.step()
-                tr_loss+= loss.item()
+                tr_loss+= loss.item().  
                 tr_steps += 1
             losses.append(tr_loss/tr_steps)
             log('Loss {}'.format(tr_loss/tr_steps))
