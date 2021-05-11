@@ -104,12 +104,30 @@ if __name__=='__main__':
 		subprocess.run('gsutil cp {} gs://keous-model-files/data/{}/'.format(base+'pair.json',base),shell=True,check=False)
 
 
+	def triplet_train():
+		from .models.bert_full import MyModel
+		from .utils.article import Collection
+		import os
+		os.system('gsutil cp gs://keous-model-files/data/{} .'.format('big_collection.msgpack'))
+		model = MyModel().fresh_load()
+		c=Collection().load('big_collection.msgpack')
+		model.triplet_train_collection(c,epochs=1,batch_size=3, headline_emb=True, save='paper_triplet_title_{}.pt')
+
+	def predict_train():
+		from models.bert_full import MyModel,read_out
+		model=MyModel().fresh_load(num_classes=5,dropout_prob=0.5)
+		tr,val = read_out('out.pkl')
+		model.supervised_train_data(xtr,ytr,xval,yval,batch_size=4,epochs=1,save='{}_supervised_model.pt')
+
+
 	commands = {
 	'scrape_urls':scrape_urls,
 	'build_collection':build_collection,
 	'cluster':cluster,
 	'predict':predict,
 	'pair':pair,
+	'triplet_train':triplet_train,
+	'predict_train':predict_train,
 	}
 
 	if len(sys.argv)>1:
