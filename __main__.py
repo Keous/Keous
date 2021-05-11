@@ -105,18 +105,23 @@ if __name__=='__main__':
 
 
 	def triplet_train():
-		from .models.bert_full import MyModel
+		from .models.bert_model import MyModel
 		from .utils.article import Collection
 		import os
 		os.system('gsutil cp gs://keous-model-files/data/{} .'.format('big_collection.msgpack'))
-		model = MyModel().fresh_load()
+		model = MyModel().fresh_load(bert_files='new_transformers')
 		c=Collection().load('big_collection.msgpack')
 		model.triplet_train_collection(c,epochs=1,batch_size=3, headline_emb=True, save='paper_triplet_title_{}.pt')
 
 	def predict_train():
-		from models.bert_full import MyModel,read_out
-		model=MyModel().fresh_load(num_classes=5,dropout_prob=0.5)
-		tr,val = read_out('out.pkl')
+		from .models.bert_model import MyModel,read_out
+		from .utils.article import Collection
+		
+		model=MyModel().fresh_load(bert_files='new_transformers', num_classes=5,dropout_prob=0.5)
+		xtr, ytr = read_out(Collection().load('keous-train.msgpack'),clean=False)
+		xval, yval = read_out(Collection().load('keous-val.msgpack'),clean=False)
+		xtest, ytest = read_out(Collection().load('keous-test.msgpack'),clean=False)
+
 		model.supervised_train_data(xtr,ytr,xval,yval,batch_size=4,epochs=1,save='{}_supervised_model.pt')
 
 

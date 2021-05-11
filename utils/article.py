@@ -427,9 +427,6 @@ class Article(object):
 	def __repr__ (self):
 		return self.title
 
-	def __str__(self):
-		return self.text()
-
 
 	def text(self,sep='\n'):
 			return sep.join(self.paras)+sep

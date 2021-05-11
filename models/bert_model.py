@@ -65,7 +65,7 @@ class MyModel(torch.nn.Module):
     def __init__(self,max_len=512,bert_files='HuggingFace Transformers'):
         super().__init__()
         self.max_len = max_len
-        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        self.tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
         self.tokenizer.model_max_length = 10**30 #to avoid annoying warnings
 
     def fresh_load(self,bert_files='HuggingFace Transformers',num_classes=None,dropout_prob=None):
@@ -178,7 +178,7 @@ class MyModel(torch.nn.Module):
         else:
             return np.concatenate(pred,axis=0)
 
-    def triplet_train_collection(self,c,batch_size=8,epochs=4, headline_emb = True, post_op='default',save=None,lr=3e-5):
+    def triplet_train_collection(self,c,batch_size=8,epochs=4, headline_emb=True, post_op='default',save=None,lr=3e-5):
         if len(c)%2==1:
             c=c[:-1] #assure even number
 
@@ -223,7 +223,7 @@ class MyModel(torch.nn.Module):
 
     def preprocess(self,x,y=None,batch_size=32,shuffle=False):
         if y is not None:
-            labels = torch.tensor(y)
+            labels = torch.tensor(y).long()
         else:
             labels = torch.tensor([np.nan]*len(x))
         input_ids =[self.tokenizer.encode(text,add_special_tokens=True,padding=False,truncation=False,verbose=False) for text in x]
@@ -288,7 +288,7 @@ def clean_out(out):
     return new_out
 
 
-def read_out(c,x_only=False,split=True,clean=True):
+def read_out(c,x_only=False,split=False,clean=True):
     if clean==True:    
         c=clean_out(c)
     x = []
