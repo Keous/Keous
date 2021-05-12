@@ -29,7 +29,7 @@ if __name__=='__main__':
 
 
 	def cluster():
-		from .models.bert_model import MyModel,read_out
+		from .models.bert_model import MyModel
 		from .utils.article import Collection
 		import torch
 
@@ -44,7 +44,8 @@ if __name__=='__main__':
 
 
 	def predict():
-		from .models.bert_model import MyModel,read_out
+		from .models.bert_model import MyModel
+		from .utils.read_data import read_collection
 		from .utils.article import Collection
 		import torch
 
@@ -52,7 +53,7 @@ if __name__=='__main__':
 		c=Collection().load(base+'collection.msgpack')
 		model_file = os.path.join(dir_path,'models','3_new_data_model.pt')
 		model = MyModel().from_pretrained(model_file,num_classes=5,extra_args={'model.bert.embeddings.position_ids':torch.arange(512).reshape((1,512)).cuda()}) #pos id an artifact from transformers==3.2
-		x,_ = read_out(c,x_only=True,split=False,clean=False)
+		x,_ = read_collection(c,x_only=True)
 		data_loader = model.preprocess(x,batch_size=16)
 		pred = model.pred(data_loader,post_op='predict',cat=True)
 		c.load_predicted_sentiments(pred)
@@ -107,30 +108,32 @@ if __name__=='__main__':
 	def triplet_train():
 		from .models.bert_model import MyModel
 		from .utils.article import Collection
-		import os
-		os.system('gsutil cp gs://keous-model-files/data/{} .'.format('big_collection.msgpack'))
 		model = MyModel().fresh_load(bert_files='new_transformers')
 		c=Collection().load('big_collection.msgpack')
 		model.triplet_train_collection(c,epochs=1,batch_size=3, headline_emb=True, save='paper_triplet_title_{}.pt')
 
 	def triplet_predict_train():
-		from .models.bert_model import MyModel,read_out
+		from .models.bert_model import MyModel
+		from .utils.read_data import read_collection
 		from .utils.article import Collection
 
 
 		#model=MyModel().fresh_load(bert_files='new_transformers', num_classes=5,dropout_prob=0.5)
 		model = MyModel().from_pretrained('paper_triplet_title_0.pt', bert_files='new_transformers', num_classes=5, dropout_prob=0.5, strict=False)
 
-		xtr, ytr = read_out(Collection().load('keous-train.msgpack'),clean=False)
-		xval, yval = read_out(Collection().load('keous-val.msgpack'),clean=False)
-		xtest, ytest = read_out(Collection().load('keous-test.msgpack'),clean=False)
+		xtr, ytr = read_collection(Collection().load('keous-train.msgpack'))
+		xval, yval = read_collection(Collection().load('keous-val.msgpack'))
 
 		model.supervised_train_data(xtr,ytr,xval,yval,batch_size=4,epochs=1,save='{}_supervised_model.pt')
 
 	def sentihood_train():
 		from .models.bert_model import MyModel
+		from .utils.read_data import read_sentihood
 		model=MyModel().fresh_load(bert_files='new_transformers', num_classes=2, dropout_prob=0.5)
+		xtr, ytr = read_sentihood('sentihood-train.json')
+		xval, yval = read_sentihood('sentihood-dev.json')
 
+		model.supervised_train_data(xtr,ytr,xval,yval,batch_size=6,epochs=10,save='{}_sentihood.pt', lr=2e-4, warmup=True)
 
 
 	commands = {

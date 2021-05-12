@@ -1,24 +1,10 @@
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score,f1_score
-from sklearn.model_selection import train_test_split
-
-import pickle
-import os
-import time
-import itertools
-from collections import Counter
 from tqdm import trange
-import sys
-import re
-from itertools import chain
-
 import torch
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler
 import transformers
-from transformers import BertModel, BertTokenizer, AdamW, BertPreTrainedModel, BertConfig, BertForSequenceClassification, BertModel
-
+from transformers import BertModel, BertTokenizer, AdamW, BertPreTrainedModel, BertModel
 from ..utils.article import Article,Collection
 
 def log(message,file='output.log'):
@@ -101,7 +87,7 @@ class MyModel(torch.nn.Module):
                 loss = criterion(anchor_output,pos_output,neg_output)
                 loss.backward()
                 self.optimizer.step()
-                tr_loss+= loss.item().  
+                tr_loss+= loss.item()
                 tr_steps += 1
             losses.append(tr_loss/tr_steps)
             log('Loss {}'.format(tr_loss/tr_steps))
@@ -188,7 +174,7 @@ class MyModel(torch.nn.Module):
             neg = list(reversed([a.title for a in c]))
 
         if headline_emb == False: #if not doing headline emb use double text
-            anchor = [a.title for a in c]
+            anchor = [a.title for a in c]   
             pos = [a.text() for a in c]
             neg = list(reversed([a.text() for a in c]))
 
@@ -276,39 +262,3 @@ def mean_pool(token_embeddings,attention_mask):
     sum_emb = torch.sum(token_embeddings * input_mask_expanded, 1)
     sum_mask = input_mask_expanded.sum(1)
     return sum_emb/sum_mask
-
-
-
-def clean_out(out):
-    new_out=[]
-    for a in out:
-        if a.title not in [art.title for art in new_out] and -100 not in a.ent_sents:
-            #a.ent_sents = [e if e != -100 else 0 for e in a.ent_sents] #fill missing values (-100) with neutral/na (0)
-            new_out.append(a)
-    return new_out
-
-
-def read_out(c,x_only=False,split=False,clean=True):
-    if clean==True:    
-        c=clean_out(c)
-    x = []
-    y = []
-    for a in c:
-        tot=0
-        for para,ents in zip(a.paras,a.ents):
-            text=para.strip()
-            texts = [re.sub(re.escape(ent),'[TARGET]',text) for ent in ents]
-            x.append(texts)
-
-            if x_only == False:
-                n=len(ents)
-                labels = [s+2 for s in a.ent_sents[tot:n+tot]] #make all above 
-                tot+=n
-                y.append(labels)
-    x=list(chain.from_iterable(x))
-    y=list(chain.from_iterable(y))
-    if split==True:
-        xtr,xval,ytr,yval = train_test_split(x,y,test_size=0.2)
-        return xtr,ytr,xval,yval
-    elif split==False:
-        return x,y
