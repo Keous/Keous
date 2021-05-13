@@ -108,18 +108,16 @@ if __name__=='__main__':
 	def triplet_train():
 		from .models.bert_model import MyModel
 		from .utils.article import Collection
-		model = MyModel().fresh_load(bert_files='new_transformers')
+		model = MyModel().fresh_load()
 		c=Collection().load('big_collection.msgpack')
 		model.triplet_train_collection(c,epochs=1,batch_size=3, headline_emb=True, save='paper_triplet_title_{}.pt')
 
-	def triplet_predict_train():
+	def predict_train():
 		from .models.bert_model import MyModel
 		from .utils.read_data import read_collection
 		from .utils.article import Collection
-
-
-		#model=MyModel().fresh_load(bert_files='new_transformers', num_classes=5,dropout_prob=0.5)
-		model = MyModel().from_pretrained('paper_triplet_title_0.pt', bert_files='new_transformers', num_classes=5, dropout_prob=0.5, strict=False)
+		#model=MyModel().fresh_load(num_classes=5,dropout_prob=0.5)
+		model = MyModel().from_pretrained('paper_triplet_title_0.pt', num_classes=5, dropout_prob=0.5, strict=False)
 
 		xtr, ytr = read_collection(Collection().load('keous-train.msgpack'))
 		xval, yval = read_collection(Collection().load('keous-val.msgpack'))
@@ -129,12 +127,12 @@ if __name__=='__main__':
 	def sentihood_train():
 		from .models.bert_model import MyModel
 		from .utils.read_data import read_sentihood
-		model=MyModel().fresh_load(bert_files='new_transformers', num_classes=2, dropout_prob=0.5)
+		model=MyModel().fresh_load(num_classes=2, dropout_prob=0.5)
 		xtr, ytr = read_sentihood('sentihood-train.json')
 		xval, yval = read_sentihood('sentihood-dev.json')
 
-		model.supervised_train_data(xtr,ytr,xval,yval,batch_size=6,epochs=10,save='{}_sentihood.pt', lr=2e-4, warmup=True)
-
+		#model.supervised_train_data(xtr,ytr,xval,yval,batch_size=6,epochs=10,save='{}_binary_sentihood.pt', lr=5e-5, warmup=True)
+		model.supervised_train_data(xtr,ytr,xval,yval,batch_size=6,epochs=8,save='models/{}_nowarmup2.pt', lr=5e-5, warmup=False)
 
 	commands = {
 	'scrape_urls':scrape_urls,
@@ -143,7 +141,7 @@ if __name__=='__main__':
 	'predict':predict,
 	'pair':pair,
 	'triplet_train':triplet_train,
-	'triplet_predict_train':triplet_predict_train,
+	'predict_train':predict_train,
 	'sentihood_train': sentihood_train,
 	}
 

@@ -2,12 +2,10 @@ import numpy as np
 from sklearn.metrics import accuracy_score,f1_score
 from tqdm import trange
 import torch
-from torch.utils.data import TensorDataset, DataLoader, RandomSampler
-import transformers
-from transformers import BertModel, BertTokenizer, AdamW, BertPreTrainedModel, BertModel
-from ..utils.article import Article,Collection
+from torch.utils.data import TensorDataset, DataLoader
+from transformers import BertModel, BertTokenizer, AdamW, BertPreTrainedModel, BertModel, get_linear_schedule_with_warmup
 
-def log(message,file='output.log'):
+def log(message,file='keous_log.txt'):
     with open(file,'a+') as f:
         f.write(message)
     print(message)
@@ -19,6 +17,8 @@ class MyBert(BertPreTrainedModel):
         super().__init__(config)
         self.bert = BertModel(config)
         if num_classes is not None:
+            if num_classes == 2:
+                num_classes = 1 #if 2 classes make only 1 logit for binary cross-entropy loss
             self.cls = torch.nn.Linear(config.hidden_size,num_classes)
         if dropout_prob is not None:
             self.dropout = torch.nn.Dropout(dropout_prob)
@@ -39,29 +39,31 @@ class MyBert(BertPreTrainedModel):
             if hasattr(self,'dropout'):
                 pooled_output = self.dropout(pooled_output)
             logits = self.cls(pooled_output)
+            if self.cls.out_features == 1:
+                return logits.reshape((-1,)) #reshape from batch_size,1 --> batch_size
             return logits
          else:
-            print('Invalid post_op. Must be one of: mean, default, cls, predict')
+            print('Invalid post_op. Must be one of: mean, default, cls, None, predict')
 
 
 
 
 
 class MyModel(torch.nn.Module):
-    def __init__(self,max_len=512,bert_files='HuggingFace Transformers'):
+    def __init__(self,max_len=512):
         super().__init__()
         self.max_len = max_len
         self.tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
         self.tokenizer.model_max_length = 10**30 #to avoid annoying warnings
 
-    def fresh_load(self,bert_files='HuggingFace Transformers',num_classes=None,dropout_prob=None):
+    def fresh_load(self,bert_files='transformers',num_classes=None,dropout_prob=None):
         self.model = MyBert.from_pretrained(bert_files,num_classes=num_classes,dropout_prob=dropout_prob)
         self.model.cuda()
         return self
 
     def triplet_train(self,anchor,pos,neg,epochs=4,post_op='mean',save=None,lr=3e-5):
         self.setup_optimizer(lr=lr)
-        log('Performing triplet training with {} epochs, {} post_op, and {} lr'.format(epochs,post_op,lr))
+        log('\nPerforming triplet training with {} epochs, {} post_op, and {} lr\n'.format(epochs,post_op,lr))
         criterion=torch.nn.TripletMarginLoss(margin=1.0, p=2)
         self.model.train()
         losses = []
@@ -90,10 +92,10 @@ class MyModel(torch.nn.Module):
                 tr_loss+= loss.item()
                 tr_steps += 1
             losses.append(tr_loss/tr_steps)
-            log('Loss {}'.format(tr_loss/tr_steps))
+            log('\tLoss {}\n'.format(tr_loss/tr_steps))
             if save is not None:
                 self.save(save.format(e))
-                log('Saving to '+save.format(e))
+                log('\tSaving to '+save.format(e)+'\n')
 
     def supervised_train(self,train_data_loader,validation_data_loader,epochs=4,save=None,lr=3e-5,warmup=False):
         self.setup_optimizer(lr=lr,warmup=warmup,epochs=epochs,train_data_loader=train_data_loader)
@@ -101,8 +103,11 @@ class MyModel(torch.nn.Module):
             dropout = self.model.dropout.p
         else:
             dropout=None
-        log('Performing supervised training with {}, {} dropout, {} lr, and {} warmup'.format(epochs,dropout,lr,warmup))
-        criterion = torch.nn.CrossEntropyLoss()
+        log('\nPerforming supervised training with {} epochs, {} dropout, {} lr, and {} warmup\n'.format(epochs,dropout,lr,warmup))
+        if self.model.cls.out_features == 1:
+            criterion = torch.nn.BCEWithLogitsLoss()
+        else:
+            criterion = torch.nn.CrossEntropyLoss()
         losses = []
         accuracy = []
         macro_f1 = []
@@ -122,27 +127,12 @@ class MyModel(torch.nn.Module):
                     self.scheduler.step()
                 tr_loss += loss.item()
                 tr_steps+=1
-            log("Loss: {}".format(tr_loss/tr_steps))
+            log("\tLoss: {}\n".format(tr_loss/tr_steps))
             if save is not None:
                 self.save(save.format(e))
-                log('Saving file to '+save.format(e))
-            self.model.eval()
-            val_acc=0
-            val_f1=0
-            val_steps=0
-            for input_id,mask,label in validation_data_loader:
-                with torch.no_grad():
-                    logits = self.model(input_id.to(device),attention_mask=mask.to(device),post_op='predict')
-                y_pred = [np.argmax(logits).item() for logits in logits.to('cpu')]
-                y_true = label
-                acc=accuracy_score(y_true,y_pred)
-                f1=f1_score(y_true,y_pred,average='macro')
-                accuracy.append(acc)
-                macro_f1.append(f1)
-                val_acc+=acc
-                val_f1+=f1
-                val_steps+=1
-            log('Acc {} and macro f1 {}'.format(val_acc/val_steps,val_f1/val_steps))
+                log('\tSaving file to '+save.format(e)+'\n')
+            acc, f1 = self.evaluate(validation_data_loader)
+            log('\tAcc {} and macro f1 {}\n'.format(acc, f1))
         return losses,accuracy,macro_f1
 
     def pred(self,data_loader,post_op='mean',cat=True):
@@ -150,19 +140,45 @@ class MyModel(torch.nn.Module):
         self.model.eval()
         with torch.no_grad():
             for input_ids,attention_mask,_ in data_loader:
-                output = self.model(
+                logits = self.model(
                     input_ids.to(device),
                     attention_mask.to(device),
                     post_op=post_op)
                 if post_op=='predict':
-                    pred.append([np.argmax(logit.to('cpu')).item() for logit in output]) #index of argmax is predicted class
+                    if self.model.cls.out_features == 1:
+                        y_pred = torch.where(logits>=0.5, 1, 0).tolist()
+                    else:
+                        y_pred = [np.argmax(logits).item() for logits in logits.to('cpu')]
+                    pred.append(y_pred)
                 else:
-                    pred.append(output.to('cpu'))
+                    pred.append(logits.to('cpu'))
 
         if cat==False:
             return pred
         else:
             return np.concatenate(pred,axis=0)
+
+    def evaluate(self, data_loader):
+        pred=[]
+        y_true = []
+        self.model.eval()
+        with torch.no_grad():
+            for input_ids,attention_mask,labels in data_loader:
+                logits = self.model(
+                    input_ids.to(device),
+                    attention_mask.to(device),
+                    post_op='predict')
+                if self.model.cls.out_features == 1:
+                    y_pred = torch.where(logits>=0.5, 1, 0).tolist()
+                else:
+                    y_pred = [np.argmax(logits).item() for logits in logits.to('cpu')]
+                pred.append(y_pred)
+                y_true.append(labels)
+
+        y_pred = np.concatenate(pred,axis=0)
+        y_true = np.concatenate(y_true, axis=0)
+        return accuracy_score(y_true,y_pred), f1_score(y_true,y_pred,average='macro')
+
 
     def triplet_train_collection(self,c,batch_size=8,epochs=4, headline_emb=True, post_op='default',save=None,lr=3e-5):
         if len(c)%2==1:
@@ -202,14 +218,17 @@ class MyModel(torch.nn.Module):
         elif warmup == True:
             self.optimizer = AdamW(optimizer_grouped_parameters,lr=lr)
             total_steps = len(train_data_loader)*epochs
-            self.scheduler = transformers.get_linear_schedule_with_warmup(self.optimizer,num_warmup_steps=total_steps*warmup_percent,num_training_steps=total_steps)
+            self.scheduler = get_linear_schedule_with_warmup(self.optimizer,num_warmup_steps=total_steps*warmup_percent,num_training_steps=total_steps)
 
 
 
 
-    def preprocess(self,x,y=None,batch_size=32,shuffle=False):
+    def preprocess(self,x,y=None,batch_size=32):
         if y is not None:
-            labels = torch.tensor(y).long()
+            if self.model.cls.out_features == 1: #BCE loss expects float
+                labels = torch.tensor(y).float()
+            else:
+                labels = torch.tensor(y).long()
         else:
             labels = torch.tensor([np.nan]*len(x))
         input_ids =[self.tokenizer.encode(text,add_special_tokens=True,padding=False,truncation=False,verbose=False) for text in x]
@@ -221,11 +240,7 @@ class MyModel(torch.nn.Module):
             
         masks = torch.tensor(attention_masks)
         data = TensorDataset(input_ids, masks, labels)
-        if shuffle == False:
-            dataloader = DataLoader(data, batch_size=batch_size)
-        elif shuffle == True:
-            sampler = RandomSampler(data)
-            dataloader = DataLoader(data, batch_size=batch_size, sampler=sampler)
+        dataloader = DataLoader(data, batch_size=batch_size)
         return dataloader
 
 
@@ -238,7 +253,7 @@ class MyModel(torch.nn.Module):
         state.update(extra_args)
         self.load_state_dict(state,strict=strict)
 
-    def from_pretrained(self,path,bert_files='HuggingFace Transformers',dropout_prob=None,num_classes=None,strict=True,extra_args={}):
+    def from_pretrained(self,path,bert_files='transformers',dropout_prob=None,num_classes=None,strict=True,extra_args={}):
         self.model = MyBert.from_pretrained(bert_files,dropout_prob=dropout_prob,num_classes=num_classes)
         self.load(path,strict=strict,extra_args=extra_args)
         self.model.cuda()
