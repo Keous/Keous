@@ -50,10 +50,13 @@ class MyBert(BertPreTrainedModel):
 
 
 class MyModel(torch.nn.Module):
-    def __init__(self,max_len=512):
+    def __init__(self,max_len=512, tokenizer_lower=False):
         super().__init__()
         self.max_len = max_len
-        self.tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+        if tokenizer_lower == True:
+            self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        else:
+            self.tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
         self.tokenizer.model_max_length = 10**30 #to avoid annoying warnings
 
     def fresh_load(self,bert_files='transformers',num_classes=None,dropout_prob=None):
