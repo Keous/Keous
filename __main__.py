@@ -110,19 +110,20 @@ if __name__=='__main__':
                 from .utils.article import Collection
                 model = MyModel().fresh_load()
                 c=Collection().load('big_collection.msgpack')
-                model.triplet_train_collection(c,epochs=2,batch_size=4, headline_emb=False, save='paper_triplet_title_{}.pt')
+                model.triplet_train_collection(c,epochs=4,batch_size=4, headline_emb=False, post_op='mean', save='mean_paper_triplet_title_{}.pt')
 
         def predict_train():
                 from .models.bert_model import MyModel
-                from .utils.read_data import read_collection
+                from .utils.read_data import read_collection, read_uspol
                 from .utils.article import Collection
-                #model=MyModel().fresh_load(num_classes=5,dropout_prob=0.5)
-                model = MyModel().from_pretrained('paper_triplet_title_0.pt', num_classes=5, dropout_prob=0.5, strict=False)
+                #model=MyModel().fresh_load(num_classes=5,dropout_prob=0.1)
+                model = MyModel().from_pretrained('paper_triplet_title_1.pt', num_classes=5, dropout_prob=0.1, strict=False)
 
-                xtr, ytr = read_collection(Collection().load('keous-train.msgpack'))
-                xval, yval = read_collection(Collection().load('keous-val.msgpack'))
-
-                model.supervised_train_data(xtr,ytr,xval,yval,batch_size=4,epochs=1,save='{}_supervised_model.pt')
+                #xtr, ytr = read_collection(Collection().load('keous-train.msgpack'))
+                #xval, yval = read_collection(Collection().load('keous-val.msgpack'))
+                xtr, ytr = read_uspol('uspol-train.json')
+                xval, yval = read_uspol('uspol-test.json')
+                model.supervised_train_data(xtr,ytr,xval,yval,batch_size=12,epochs=8, lr=2e-5, save='{}_pretrained_supervised_model.pt', warmup=True)
 
         def sentihood_train():
                 from .models.bert_model import MyModel

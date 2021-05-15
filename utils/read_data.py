@@ -38,3 +38,12 @@ def read_sentihood(file):
                 elif point['sentiment'] == 'Negative':
                     y.append(0)
     return x,y
+
+
+def read_uspol(file):
+    with open(file, 'r') as f:
+        data = f.read()
+    data = json.loads(data)
+    x = [item['text'] for item in data]
+    y = [item['label'] for item in data]
+    return x,y
