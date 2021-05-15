@@ -136,7 +136,7 @@ if __name__=='__main__':
                 model.supervised_train_data(xtr,ytr,xval,yval,batch_size=12,epochs=8,save='models/{}_qam_replica.pt', lr=2e-5, warmup=True)
 
 
-        def grid_search():
+        def grid_search_sentihood():
                 from .models.bert_model import MyModel
                 from .utils.read_data import read_sentihood
                 import os
@@ -159,6 +159,32 @@ if __name__=='__main__':
                         print('Searching with {} and {} {} of {} and {} and {}'.format(*grid.keys(), *config))
                         search(config)
 
+
+        def grid_search_uspol():
+            from .models.bert_model import MyModel
+            from .utils.read_data import read_uspol
+            import os
+            import itertoolse
+
+            grid = {'lr': [2e-5], 'dropout': [0.1], 'warmup': [True], 'model':['mean_paper_triplet_title_0.pt', 'mean_paper_triplet_title_1.pt', 'mean_paper_triplet_title_2.pt', 'mean_paper_triplet_title_3.pt'], }
+
+            def search(params, tr_batch_size=12, val_batch_size=16):
+                lr, dropout, warmup, model_path = params
+                pretty_model_path = model_path.replace('.pt', '')
+                model = MyModel().from_pretrained(model_path, num_classes=5, dropout_prob=dropout, strict=False)
+                xtr, ytr = read_uspol('uspol-train.json')
+                xval, yval = read_uspol('uspol-test.json')
+                tr_data_loader = model.preprocess(xtr, ytr, batch_size = tr_batch_size)
+                val_data_loader = model.preprocess(xval, yval, batch_size = val_batch_size)
+                name = '{}'+'_sentihood_{}_{}_{}_{}.pt'.format(str(lr), str(dropout), str(warmup), pretty_model_path)
+                model.supervised_train(tr_data_loader, val_data_loader, epochs=8,save=os.path.join('models',name), lr=lr, warmup=warmup)
+
+
+            for config in itertools.product(*grid.values()):
+                    print('Searching with keys: {} and vals: {}'.format(list(grid.keys()), config))
+                    search(config)
+
+
         def evaluate():
                 from .models.bert_model import MyModel
                 from .utils.read_data import read_sentihood
@@ -176,7 +202,8 @@ if __name__=='__main__':
         'triplet_train':triplet_train,
         'predict_train':predict_train,
         'sentihood_train': sentihood_train,
-        'grid_search':grid_search,
+        'grid_search_sentihood':grid_search_sentihood,
+        'grid_search_uspol': grid_search_uspol,
         'evaluate':evaluate,
         }
 
