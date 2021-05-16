@@ -64,7 +64,7 @@ class MyModel(torch.nn.Module):
         self.model.cuda()
         return self
 
-    def triplet_train(self,anchor,pos,neg,epochs=4,post_op='mean',save=None,lr=3e-5):
+    def triplet_train(self,anchor,pos,neg,epochs=4,post_op='mean',save=None,lr=3e-5, warmup=False):
         self.setup_optimizer(lr=lr)
         log('\nPerforming triplet training with {} epochs, {} post_op, and {} lr\n'.format(epochs,post_op,lr))
         criterion=torch.nn.TripletMarginLoss(margin=1.0, p=2)
@@ -92,6 +92,8 @@ class MyModel(torch.nn.Module):
                 loss = criterion(anchor_output,pos_output,neg_output)
                 loss.backward()
                 self.optimizer.step()
+                if warmup == True:
+                    self.scheduler.step()
                 tr_loss+= loss.item()
                 tr_steps += 1
             losses.append(tr_loss/tr_steps)
@@ -183,7 +185,7 @@ class MyModel(torch.nn.Module):
         return accuracy_score(y_true,y_pred), f1_score(y_true,y_pred,average='macro')
 
 
-    def triplet_train_collection(self,c,batch_size=8,epochs=4, headline_emb=True, post_op='default',save=None,lr=3e-5):
+    def triplet_train_collection(self,c,batch_size=8,epochs=4, headline_emb=True, post_op='default',save=None,lr=3e-5, warmup=False):
         if len(c)%2==1:
             c=c[:-1] #assure even number
 
@@ -200,7 +202,7 @@ class MyModel(torch.nn.Module):
         anchor_loader = self.preprocess(anchor,batch_size=batch_size)
         pos_loader = self.preprocess(pos,batch_size=batch_size)
         neg_loader = self.preprocess(neg,batch_size=batch_size)
-        self.triplet_train(anchor_loader,pos_loader,neg_loader,epochs=epochs,post_op=post_op,save=save,lr=lr)
+        self.triplet_train(anchor_loader,pos_loader,neg_loader,epochs=epochs,post_op=post_op,save=save,lr=lr, warmup=warmup)
 
     def supervised_train_data(self,xtr,ytr,xval,yval,batch_size=8,epochs=4,save=None,lr=3e-5,warmup=False):
         train_data_loader = self.preprocess(xtr,ytr,batch_size=batch_size)

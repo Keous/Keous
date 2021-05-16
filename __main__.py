@@ -110,20 +110,20 @@ if __name__=='__main__':
                 from .utils.article import Collection
                 model = MyModel().fresh_load()
                 c=Collection().load('big_collection.msgpack')
-                model.triplet_train_collection(c,epochs=4,batch_size=4, headline_emb=False, post_op='mean', save='mean_paper_triplet_title_{}.pt')
+                model.triplet_train_collection(c,epochs=3,batch_size=4, headline_emb=True, post_op='mean', save='mean_paper_triplet_title__{}.pt')
 
         def predict_train():
                 from .models.bert_model import MyModel
                 from .utils.read_data import read_collection, read_uspol
                 from .utils.article import Collection
                 #model=MyModel().fresh_load(num_classes=5,dropout_prob=0.1)
-                model = MyModel().from_pretrained('paper_triplet_title_1.pt', num_classes=5, dropout_prob=0.1, strict=False)
+                model = MyModel().from_pretrained('mean_paper_triplet_body_0.pt', num_classes=5, dropout_prob=0.1, strict=False)
 
                 #xtr, ytr = read_collection(Collection().load('keous-train.msgpack'))
                 #xval, yval = read_collection(Collection().load('keous-val.msgpack'))
                 xtr, ytr = read_uspol('uspol-train.json')
                 xval, yval = read_uspol('uspol-test.json')
-                model.supervised_train_data(xtr,ytr,xval,yval,batch_size=12,epochs=8, lr=2e-5, save='{}_pretrained_supervised_model.pt', warmup=True)
+                model.supervised_train_data(xtr,ytr,xval,yval,batch_size=12,epochs=8, lr=2e-5, save='{}_pretrained_from_0_supervised_model.pt', warmup=True)
 
         def sentihood_train():
                 from .models.bert_model import MyModel
@@ -164,9 +164,9 @@ if __name__=='__main__':
             from .models.bert_model import MyModel
             from .utils.read_data import read_uspol
             import os
-            import itertoolse
+            import itertools
 
-            grid = {'lr': [2e-5], 'dropout': [0.1], 'warmup': [True], 'model':['mean_paper_triplet_title_0.pt', 'mean_paper_triplet_title_1.pt', 'mean_paper_triplet_title_2.pt', 'mean_paper_triplet_title_3.pt'], }
+            grid = {'lr': [2e-5, 2e-5], 'dropout': [0.1], 'warmup': [True], 'model':['mean_paper_triplet_title_0.pt', 'mean_paper_triplet_title_1.pt'] }
 
             def search(params, tr_batch_size=12, val_batch_size=16):
                 lr, dropout, warmup, model_path = params
