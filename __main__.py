@@ -110,79 +110,26 @@ if __name__=='__main__':
                 from .utils.article import Collection
                 model = MyModel().fresh_load()
                 c=Collection().load('big_collection.msgpack')
-                model.triplet_train_collection(c,epochs=3,batch_size=4, headline_emb=True, post_op='mean', save='mean_paper_triplet_title__{}.pt')
+                model.triplet_train_collection(c,epochs=2,batch_size=4, headline_emb=True, post_op='mean', save='models/mean_paper_triplet_title_{}.pt')
 
         def predict_train():
                 from .models.bert_model import MyModel
                 from .utils.read_data import read_collection, read_uspol
                 from .utils.article import Collection
-                #model=MyModel().fresh_load(num_classes=5,dropout_prob=0.1)
-                model = MyModel().from_pretrained('mean_paper_triplet_body_0.pt', num_classes=5, dropout_prob=0.1, strict=False)
+                model = MyModel().from_pretrained('models/mean_paper_triplet_body_0.pt', num_classes=5, dropout_prob=0.1, strict=False)
 
-                #xtr, ytr = read_collection(Collection().load('keous-train.msgpack'))
-                #xval, yval = read_collection(Collection().load('keous-val.msgpack'))
                 xtr, ytr = read_uspol('uspol-train.json')
-                xval, yval = read_uspol('uspol-test.json')
-                model.supervised_train_data(xtr,ytr,xval,yval,batch_size=12,epochs=8, lr=2e-5, save='{}_pretrained_from_0_supervised_model.pt', warmup=True)
+                xval, yval = read_uspol('uspol-val.json')
+                model.supervised_train_data(xtr,ytr,xval,yval,batch_size=12,epochs=8, lr=2e-5, save='models/{}_pretrained_from_0_supervised_model.pt', warmup=True)
 
         def sentihood_train():
                 from .models.bert_model import MyModel
                 from .utils.read_data import read_sentihood
                 model=MyModel(max_len=128, tokenizer_lowercase = True).fresh_load(bert_files='bert-base-uncased',num_classes=2, dropout_prob=0.1)
+                
                 xtr, ytr = read_sentihood('sentihood-train.json')
                 xval, yval = read_sentihood('sentihood-dev.json')
-
-                #model.supervised_train_data(xtr,ytr,xval,yval,batch_size=6,epochs=10,save='{}_binary_sentihood.pt', lr=5e-5, warmup=True)
-                model.supervised_train_data(xtr,ytr,xval,yval,batch_size=12,epochs=8,save='models/{}_qam_replica.pt', lr=2e-5, warmup=True)
-
-
-        def grid_search_sentihood():
-                from .models.bert_model import MyModel
-                from .utils.read_data import read_sentihood
-                import os
-                import itertools
-
-                grid = {'lr': [2e-5, 2e-5, 2e-5], 'dropout': [0.1], 'warmup': [True]}
-
-                def search(params, tr_batch_size=12, val_batch_size=16):
-                    lr, dropout, warmup = params
-                    model=MyModel(max_len=128, tokenizer_lower = True).fresh_load(bert_files='bert-base-uncased',num_classes=2, dropout_prob=dropout)
-                    xtr, ytr = read_sentihood('sentihood-train.json')
-                    xval, yval = read_sentihood('sentihood-test.json')
-                    tr_data_loader = model.preprocess(xtr, ytr, batch_size = tr_batch_size)
-                    val_data_loader = model.preprocess(xval, yval, batch_size = val_batch_size)
-                    name = '{}'+'_sentihood_{}_{}_{}.pt'.format(str(lr), str(dropout), str(warmup))
-                    model.supervised_train(tr_data_loader, val_data_loader, epochs=8,save=os.path.join('models',name), lr=lr, warmup=warmup)
-
-
-                for config in itertools.product(*grid.values()):
-                        print('Searching with {} and {} {} of {} and {} and {}'.format(*grid.keys(), *config))
-                        search(config)
-
-
-        def grid_search_uspol():
-            from .models.bert_model import MyModel
-            from .utils.read_data import read_uspol
-            import os
-            import itertools
-
-            grid = {'lr': [2e-5, 2e-5], 'dropout': [0.1], 'warmup': [True], 'model':['mean_paper_triplet_title_0.pt', 'mean_paper_triplet_title_1.pt'] }
-
-            def search(params, tr_batch_size=12, val_batch_size=16):
-                lr, dropout, warmup, model_path = params
-                pretty_model_path = model_path.replace('.pt', '')
-                model = MyModel().from_pretrained(model_path, num_classes=5, dropout_prob=dropout, strict=False)
-                xtr, ytr = read_uspol('uspol-train.json')
-                xval, yval = read_uspol('uspol-test.json')
-                tr_data_loader = model.preprocess(xtr, ytr, batch_size = tr_batch_size)
-                val_data_loader = model.preprocess(xval, yval, batch_size = val_batch_size)
-                name = '{}'+'_sentihood_{}_{}_{}_{}.pt'.format(str(lr), str(dropout), str(warmup), pretty_model_path)
-                model.supervised_train(tr_data_loader, val_data_loader, epochs=8,save=os.path.join('models',name), lr=lr, warmup=warmup)
-
-
-            for config in itertools.product(*grid.values()):
-                    print('Searching with keys: {} and vals: {}'.format(list(grid.keys()), config))
-                    search(config)
+                model.supervised_train_data(xtr,ytr,xval,yval,batch_size=12,epochs=8,save='models/{}_sentihood.pt', lr=2e-5, warmup=True)
 
 
         def evaluate():
@@ -190,7 +137,7 @@ if __name__=='__main__':
                 from .utils.read_data import read_sentihood
                 model=MyModel().from_pretrained('models/4_sentihood_2e-05_0.2.pt', num_classes=2, dropout_prob=0.2, strict=False)
                 xval, yval = read_sentihood('sentihood-test.json')
-                data_loader = model.preprocess(xval, yval, batch_size=16)
+                data_loader = model.preprocess(xval, yval, batch_size=12)
                 print(model.evaluate(data_loader))
 
         commands = {
@@ -202,8 +149,6 @@ if __name__=='__main__':
         'triplet_train':triplet_train,
         'predict_train':predict_train,
         'sentihood_train': sentihood_train,
-        'grid_search_sentihood':grid_search_sentihood,
-        'grid_search_uspol': grid_search_uspol,
         'evaluate':evaluate,
         }
 
